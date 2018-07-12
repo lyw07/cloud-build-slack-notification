@@ -26,59 +26,59 @@ exports.deployStudio = (event, callback) => {
   webhook.send(message, callback);
 
 
-  if (build.status == 'SUCCESS') {
-    const cluster = new container.v1.ClusterManagerClient({
-      projectId: PROJECT_ID,
-    });
+  // if (build.status == 'SUCCESS') {
+  //   const cluster = new container.v1.ClusterManagerClient({
+  //     projectId: PROJECT_ID,
+  //   });
 
-    const clusterInfo = {
-      projectId: PROJECT_ID,
-      zone: 'us-central1-f',
-      clusterId: 'studio-dev-preview',
-    };
+  //   const clusterInfo = {
+  //     projectId: PROJECT_ID,
+  //     zone: 'us-central1-f',
+  //     clusterId: 'studio-dev-preview',
+  //   };
 
-    cluster.getCluster(clusterInfo)
-      .then(responses => {
-        const response = responses[0];
+  //   cluster.getCluster(clusterInfo)
+  //     .then(responses => {
+  //       const response = responses[0];
 
-        const client = new k8s.Extensions({
-          url: 'https://' + response['endpoint'],
-          version: 'v1beta1',
-          namespace: 'cloudfunction',
-          insecureSkipTlsVerify: true,
-          auth:{
-            user: response['masterAuth']['username'],
-            pass: response['masterAuth']['password']
-          },
-        });
+  //       const client = new k8s.Extensions({
+  //         url: 'https://' + response['endpoint'],
+  //         version: 'v1beta1',
+  //         namespace: 'cloudfunction',
+  //         insecureSkipTlsVerify: true,
+  //         auth:{
+  //           user: response['masterAuth']['username'],
+  //           pass: response['masterAuth']['password']
+  //         },
+  //       });
 
-        const patch = { spec: { template: { spec: { containers: [ {
-          name: 'app',
-          image: build.images[1]
-        } ] } } } };
+  //       const patch = { spec: { template: { spec: { containers: [ {
+  //         name: 'app',
+  //         image: build.images[1]
+  //       } ] } } } };
 
-        client.namespaces('cloudfunction').deployments('studio-app').patch({
-          body: patch,
-        }, function(error, result){
-          if (error == null) {
-            const deployStatus = 'SUCCESS';
-            var deployMsg = createDeployMessage(deployStatus);
-            console.log('Success:', result);
-          }
-          else{
-            const deployStatus = 'FAILURE';
-            var deployMsg = createDeployMessage(deployStatus);
-            console.log('Error:', error);
-          }
-          console.log("Sending deployment status to slack...");
-          webhook.send(deployMsg, callback);
-        });
+  //       client.namespaces('cloudfunction').deployments('studio-app').patch({
+  //         body: patch,
+  //       }, function(error, result){
+  //         if (error == null) {
+  //           const deployStatus = 'SUCCESS';
+  //           var deployMsg = createDeployMessage(deployStatus);
+  //           console.log('Success:', result);
+  //         }
+  //         else{
+  //           const deployStatus = 'FAILURE';
+  //           var deployMsg = createDeployMessage(deployStatus);
+  //           console.log('Error:', error);
+  //         }
+  //         console.log("Sending deployment status to slack...");
+  //         webhook.send(deployMsg, callback);
+  //       });
 
-      })
-      .catch(err => {
-        console.error('ERROR:', err);
-      });
-  }
+  //     })
+  //     .catch(err => {
+  //       console.error('ERROR:', err);
+  //     });
+  // }
 
   
 };
@@ -90,6 +90,27 @@ const eventToBuild = (data) => {
 
 // createSlackMessage create a message from a build object.
 const createBuildMessage = (build) => {
+  var field = [
+    {
+      title: 'Status',
+      value: build.status,
+    },
+    {
+      title: 'Branch',
+      value: build.source['repoSource']['branchName'],
+    },
+    {
+      title: 'Commit',
+      value: build.sourceProvenance['resolvedRepoSource']['commitSha'],
+    }
+  ]
+  if (build.status == 'SUCCESS') {
+    let instanceLink = {
+      title: 'Link to instance',
+      value: `${build.source['repoSource']['branchName']}.studio.cd.learningequality.org`
+    }
+    field.push(instanceLink)
+  }
   let message = {
     text: `Build \`${build.id}\``,
     mrkdwn: true,
@@ -97,28 +118,7 @@ const createBuildMessage = (build) => {
       {
         title: 'Build logs',
         title_link: build.logUrl,
-        fields: [
-        {
-          title: 'Status',
-          value: build.status,
-        }
-        // {
-        //   title: 'Project ID',
-        //   value: build.projectId
-        // },
-        // {
-        //   title: 'Repository',
-        //   value: build.sourceProvenance['resolvedRepoSource']['repoName'],
-        // },
-        // {
-        //   title: 'branch',
-        //   value: build.source['repoSource']['branchName'],
-        // },
-        // {
-        //   title: 'Commit',
-        //   value: build.sourceProvenance['resolvedRepoSource']['commitSha'],
-        // }
-        ]
+        fields: field
       }
     ]
   };
@@ -127,25 +127,25 @@ const createBuildMessage = (build) => {
 
 
 // createSlackMessage create a message from a deployment status.
-const createDeployMessage = (deploy) => {
-  let message = {
-    text: `Deployment`,
-    mrkdwn: true,
-    color:"#D00000",
-    attachments: [
-      {
-        title: 'Deployment Result',
-        fields: [
-        {
-          title: 'Status',
-          value: deploy
-        },
-        {
-          title: 'Notes',
-          value: 'Please run `kubectl get pods` to double check if the deployment is successful.'
-        }]
-      }
-    ]
-  };
-  return message
-}
+// const createDeployMessage = (deploy) => {
+//   let message = {
+//     text: `Deployment`,
+//     mrkdwn: true,
+//     color:"#D00000",
+//     attachments: [
+//       {
+//         title: 'Deployment Result',
+//         fields: [
+//         {
+//           title: 'Status',
+//           value: deploy
+//         },
+//         {
+//           title: 'Notes',
+//           value: 'Please run `kubectl get pods` to double check if the deployment is successful.'
+//         }]
+//       }
+//     ]
+//   };
+//   return message
+// }
